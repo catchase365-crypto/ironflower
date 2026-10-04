@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>国家级非遗 · 打铁花 沉浸式模拟器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: manipulation;
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #05060a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+
+    /* Ambient chromatic blur orbs background */
+    .ambient-canvas-bg {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .blur-orb {
+      position: absolute;
+      border-radius: 9999px;
+      filter: blur(max(40px, 6vw));
+      opacity: 0.16;
+      animation: floatPulse 18s ease-in-out infinite alternate;
+      will-change: transform, opacity;
+    }
+    .orb-emerald { width: max(32vw, 32vh); height: max(32vw, 32vh); top: -10%; left: -10%; background: radial-gradient(circle, #059669, transparent 70%); }
+    .orb-violet  { width: max(38vw, 38vh); height: max(38vw, 38vh); top: -12%; right: -10%; background: radial-gradient(circle, #7c3aed, transparent 70%); animation-delay: -3s; }
+    .orb-blue    { width: max(36vw, 36vh); height: max(36vw, 36vh); bottom: -10%; left: -10%; background: radial-gradient(circle, #0284c7, transparent 70%); animation-delay: -6s; }
+    .orb-magenta { width: max(34vw, 34vh); height: max(34vw, 34vh); bottom: -10%; right: -10%; background: radial-gradient(circle, #db2777, transparent 70%); animation-delay: -9s; }
+    .orb-amber   { width: max(45vw, 45vh); height: max(45vw, 45vh); top: 35%; left: 30%; background: radial-gradient(circle, #d97706, transparent 70%); opacity: 0.22; animation-delay: -12s; }
+
+    @keyframes floatPulse {
+      0% { transform: scale(0.9) translate(0, 0); }
+      50% { transform: scale(1.15) translate(3vw, 2vh); }
+      100% { transform: scale(1) translate(-2vw, -2vh); }
+    }
+
+    /* Glassmorphic frosted panels */
+    .glass-panel {
+      background: rgba(18, 20, 32, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 215, 0, 0.18);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.65), inset 0 1px 1px 0 rgba(255, 255, 255, 0.12);
+    }
+    .glass-btn {
+      background: linear-gradient(135deg, rgba(255, 140, 0, 0.25), rgba(220, 38, 38, 0.15));
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 200, 100, 0.3);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-btn:hover {
+      background: linear-gradient(135deg, rgba(255, 165, 0, 0.45), rgba(220, 38, 38, 0.35));
+      border-color: rgba(255, 220, 130, 0.7);
+      transform: translateY(-1px);
+      box-shadow: 0 0 16px rgba(255, 140, 0, 0.4);
+    }
+    .glass-btn:active {
+      transform: scale(0.96) translateY(1px);
+    }
+
+    /* Traditional Seal badge */
+    .seal-font {
+      font-family: "Songti SC", "STSong", "SimSun", "Noto Serif SC", serif;
+      letter-spacing: 0.12em;
+    }
+
+    /* Golden text gradient */
+    .gold-gradient-text {
+      background: linear-gradient(135deg, #fff5d6 0%, #ffd066 40%, #ff8c00 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Reticle indicator animation */
+    @keyframes pulseRing {
+      0% { transform: scale(0.7); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 12px #ffb300); }
+      100% { transform: scale(0.7); opacity: 0.8; }
+    }
+    .reticle-animate {
+      animation: pulseRing 1.2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="w-full h-full relative select-none text-slate-100 overflow-hidden bg-black">
+
+  <div class="ambient-canvas-bg">
+    <div class="blur-orb orb-emerald"></div>
+    <div class="blur-orb orb-violet"></div>
+    <div class="blur-orb orb-blue"></div>
+    <div class="blur-orb orb-magenta"></div>
+    <div class="blur-orb orb-amber"></div>
+  </div>
+
+  <!-- Primary Canvas Surface -->
+  <canvas id="fireCanvas" class="absolute inset-0 z-10 w-full h-full block cursor-crosshair"></canvas>
+
+  <!-- Top Floating HUD -->
+  <header class="absolute top-3 sm:top-5 inset-x-0 mx-auto w-[94%] max-w-5xl z-30 flex items-center justify-between pointer-events-none">
+    <!-- Brand Title -->
+    <div class="flex items-center space-x-3 pointer-events-auto">
+      <div class="relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl glass-panel flex items-center justify-center border border-amber-500/40 shadow-lg shadow-amber-900/30">
+        <span class="seal-font text-amber-300 font-bold text-lg sm:text-xl">花</span>
+        <div class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-orange-500 animate-ping"></div>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="seal-font text-lg sm:text-2xl font-bold tracking-wider gold-gradient-text drop-shadow">打铁花 · 盛世华章</h1>
+          <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">国家级非遗</span>
+        </div>
+        <p class="text-[10px] sm:text-xs text-amber-200/70 hidden sm:block">一棒击落万点星 · 1600℃古法物理热辐射流体模拟</p>
+      </div>
+    </div>
+
+    <!-- Quick Actions (Audio / Heritage / Fullscreen) -->
+    <div class="flex items-center space-x-2 sm:space-x-3 pointer-events-auto">
+      <!-- Sound toggle -->
+      <button id="btnSound" class="glass-panel px-3 py-2 rounded-xl flex items-center space-x-1.5 hover:border-amber-400 text-xs text-amber-200 active:scale-95 transition" title="音效开关">
+        <svg id="iconSoundOn" class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+        <svg id="iconSoundOff" class="w-4 h-4 text-gray-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+        <span id="txtSound" class="hidden sm:inline font-mono">声效</span>
+      </button>
+
+      <!-- Heritage Info -->
+      <button id="btnInfo" class="glass-panel p-2 rounded-xl hover:border-amber-400 text-amber-300 active:scale-95 transition" title="非遗文化背景">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      </button>
+
+      <!-- Fullscreen Toggle -->
+      <button id="btnFullscreen" class="glass-panel p-2 rounded-xl hover:border-amber-400 text-amber-300 active:scale-95 transition" title="全屏视界">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Center Reticle & Timing Feedback Container for Strike Mode -->
+  <div id="timingContainer" class="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none select-none transition-opacity duration-300">
+    <!-- Sweet spot aim reticle (dynamically tracked in strike mode) -->
+    <div id="targetReticle" class="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full border-2 border-dashed border-amber-400/80 flex items-center justify-center reticle-animate opacity-0 transition-opacity duration-200">
+      <div class="w-6 h-6 rounded-full border border-amber-300/90 bg-amber-400/20"></div>
+      <div class="absolute -top-6 text-[11px] font-mono text-amber-300 bg-black/60 px-2 py-0.5 rounded border border-amber-500/30 whitespace-nowrap">
+        击打临界点 (制高点)
+      </div>
+    </div>
+
+    <!-- Rating banner message -->
+    <div id="ratingBanner" class="opacity-0 transform -translate-y-4 scale-90 transition-all duration-300 flex flex-col items-center">
+      <div id="ratingText" class="seal-font text-2xl sm:text-4xl md:text-5xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-yellow-100 via-amber-300 to-red-500 drop-shadow-[0_0_25px_rgba(255,180,50,0.9)]">
+        火树银花 · 绝技封神！
+      </div>
+      <div id="ratingSubText" class="text-xs sm:text-sm text-amber-200 font-mono mt-1 bg-black/60 px-3 py-1 rounded-full border border-amber-500/40">
+        完美暴击 +3200 枝火星
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Interactive Command Deck -->
+  <footer class="absolute bottom-3 sm:bottom-6 inset-x-0 mx-auto w-[94%] max-w-4xl z-30 flex flex-col items-center space-y-3 pointer-events-none">
+    
+    <!-- Mode Controls Ribbon -->
+    <div class="glass-panel p-1.5 rounded-2xl flex items-center space-x-1 sm:space-x-2 pointer-events-auto shadow-2xl">
+      <button data-mode="strike" class="mode-btn active px-3 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-1.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-orange-950/60 border border-amber-400/40">
+        <span>🔨</span>
+        <span>亲身击打</span>
+      </button>
+      <button data-mode="free" class="mode-btn px-3 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-1.5 text-amber-200/80 hover:text-white hover:bg-white/5 border border-transparent">
+        <span>✨</span>
+        <span>随指生花</span>
+      </button>
+      <button data-mode="show" class="mode-btn px-3 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-1.5 text-amber-200/80 hover:text-white hover:bg-white/5 border border-transparent">
+        <span>🎆</span>
+        <span>非遗巡演</span>
+      </button>
+    </div>
+
+    <!-- Mode-Specific Action Sub-Bars -->
+    <!-- Strike Mode Actions -->
+    <div id="strikeActions" class="w-full flex items-center justify-center space-x-3 sm:space-x-5 pointer-events-auto">
+      <button id="btnToss" class="glass-btn px-5 sm:px-8 py-3 rounded-2xl text-amber-100 font-bold text-sm sm:text-base flex items-center space-x-2 shadow-lg">
+        <span class="text-xl">🥄</span>
+        <span>起花 (抛铁水)</span>
+      </button>
+      <button id="btnStrike" class="glass-btn px-6 sm:px-10 py-3 rounded-2xl text-yellow-300 font-black text-sm sm:text-lg flex items-center space-x-2 border-amber-400/60 shadow-xl shadow-amber-900/40 animate-bounce">
+        <span class="text-2xl">⚡</span>
+        <span>挥棒暴击！</span>
+      </button>
+    </div>
+
+    <!-- Free Splash Mode Help Tip -->
+    <div id="freeActions" class="hidden text-center pointer-events-auto">
+      <div class="glass-panel px-4 py-2 rounded-xl text-xs text-amber-200/90 inline-flex items-center space-x-2 border border-amber-500/30">
+        <span>👆</span>
+        <span>在屏幕上快速滑过或多指轻触，铁水将随指尖轨迹狂涌飞溅</span>
+      </div>
+    </div>
+
+    <!-- Show Mode Sequence Indicator -->
+    <div id="showActions" class="hidden w-full max-w-md pointer-events-auto">
+      <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center justify-between text-xs border border-amber-500/40">
+        <div class="flex items-center space-x-2">
+          <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></div>
+          <span class="text-amber-300 font-medium">当前幕次：</span>
+          <span id="showActTitle" class="seal-font font-bold text-amber-100 text-sm">【第一幕 · 祭火祈祥】</span>
+        </div>
+        <button id="btnNextAct" class="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30">
+          换一幕 ⏭
+        </button>
+      </div>
+    </div>
+
+    <!-- Fine Tuning Parameters Drawer Toggle & Stats -->
+    <div class="flex items-center justify-between w-full text-[11px] text-amber-300/60 font-mono px-3 pointer-events-auto">
+      <div class="flex items-center space-x-3">
+        <span id="sparkCountLabel">粒子: 0</span>
+        <span class="hidden sm:inline">|</span>
+        <span id="fpsLabel" class="hidden sm:inline">60 FPS</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button id="btnConfig" class="underline hover:text-amber-200 flex items-center space-x-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+          <span>参数与温标</span>
+        </button>
+        <span>•</span>
+        <button id="btnClear" class="underline hover:text-amber-200">清空余烬</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Config Drawer / Modal -->
+  <div id="modalConfig" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md p-6 rounded-3xl border border-amber-500/40 relative shadow-2xl">
+      <button id="btnCloseConfig" class="absolute top-4 right-4 text-gray-400 hover:text-white p-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <h3 class="seal-font text-xl font-bold gold-gradient-text mb-4">物理与熔炉参数配置</h3>
+      
+      <div class="space-y-4 text-xs sm:text-sm">
+        <!-- Thermal Model -->
+        <div>
+          <label class="block text-amber-200 mb-1.5 font-medium">铁水色温与熔炼配比</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button data-temp="standard" class="temp-btn active p-2 rounded-xl border border-amber-500 bg-amber-500/20 text-amber-200 text-center">
+              <div class="font-bold">1600℃ 白炽金</div>
+              <div class="text-[10px] text-amber-300/70">传统生铁熔汁</div>
+            </button>
+            <button data-temp="white" class="temp-btn p-2 rounded-xl border border-white/20 hover:border-white/40 text-gray-300 text-center">
+              <div class="font-bold">1850℃ 极热耀白</div>
+              <div class="text-[10px] text-gray-400">纯白高裂刺花</div>
+            </button>
+            <button data-temp="copper" class="temp-btn p-2 rounded-xl border border-white/20 hover:border-white/40 text-gray-300 text-center">
+              <div class="font-bold">1450℃ 丹红熔金</div>
+              <div class="text-[10px] text-gray-400">长拖尾余烬雨</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Density / Particle Quality -->
+        <div>
+          <label class="block text-amber-200 mb-1.5 font-medium">火花喷涌密度 (设备性能)</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button data-density="low" class="density-btn p-2 rounded-xl border border-white/20 hover:border-white/40 text-gray-300 text-center">
+              <div class="font-bold">省电轻量</div>
+              <div class="text-[10px] text-gray-400">上限 2,500 粒</div>
+            </button>
+            <button data-density="med" class="density-btn active p-2 rounded-xl border border-amber-500 bg-amber-500/20 text-amber-200 text-center">
+              <div class="font-bold">均衡典雅</div>
+              <div class="text-[10px] text-amber-300/70">上限 6,500 粒</div>
+            </button>
+            <button data-density="high" class="density-btn p-2 rounded-xl border border-white/20 hover:border-white/40 text-gray-300 text-center">
+              <div class="font-bold">电影级华彩</div>
+              <div class="text-[10px] text-gray-400">上限 16,000+ 粒</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Branching Sparks Toggle -->
+        <div class="flex items-center justify-between py-2 border-t border-white/10">
+          <div>
+            <div class="font-medium text-amber-200">真实氧化【二次爆裂刺花】</div>
+            <div class="text-[11px] text-gray-400">空中铁珠高温爆开为分叉星芒微粒</div>
+          </div>
+          <input type="checkbox" id="chkBranching" checked class="w-5 h-5 accent-amber-500 rounded cursor-pointer" />
+        </div>
+
+        <!-- Ground Splashes -->
+        <div class="flex items-center justify-between py-2 border-t border-white/10">
+          <div>
+            <div class="font-medium text-amber-200">青石板碰撞二次溅射</div>
+            <div class="text-[11px] text-gray-400">铁花触地弹跳与水面金光倒影</div>
+          </div>
+          <input type="checkbox" id="chkBounce" checked class="w-5 h-5 accent-amber-500 rounded cursor-pointer" />
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end">
+        <button id="btnSaveConfig" class="glass-btn px-6 py-2 rounded-xl text-amber-200 font-bold border-amber-400/50">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cultural Info Modal -->
+  <div id="modalInfo" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-lg p-6 sm:p-8 rounded-3xl border border-amber-500/40 relative shadow-2xl max-h-[85vh] overflow-y-auto">
+      <button id="btnCloseInfo" class="absolute top-4 right-4 text-gray-400 hover:text-white p-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      
+      <div class="text-center mb-6">
+        <span class="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs border border-amber-500/30">第一批国家级非物质文化遗产</span>
+        <h2 class="seal-font text-2xl sm:text-3xl font-black gold-gradient-text mt-2">确山·打铁花</h2>
+        <p class="text-xs text-amber-200/70 mt-1">“火树银花合，星桥铁锁开”</p>
+      </div>
+
+      <div class="space-y-4 text-xs sm:text-sm text-gray-300 leading-relaxed">
+        <div class="bg-amber-950/30 p-3.5 rounded-2xl border border-amber-500/20">
+          <h4 class="font-bold text-amber-200 mb-1 flex items-center space-x-1.5">
+            <span>🔥</span><span>千年旷世绝技</span>
+          </h4>
+          <p>打铁花始于北宋，盛于明清，距今已有一千多年历史。最初源自民间铸造业匠人祭祀太上老君与火神的仪式，后演变为祈求风调雨顺、五谷丰登的宏大民俗庆典。</p>
+        </div>
+
+        <div class="bg-amber-950/30 p-3.5 rounded-2xl border border-amber-500/20">
+          <h4 class="font-bold text-amber-200 mb-1 flex items-center space-x-1.5">
+            <span>🪵</span><span>柳木与熔铁的碰撞</span>
+          </h4>
+          <p>表演现场搭建起丈余高的双层<strong>柳木花棚</strong>，顶插新鲜柳枝，绑满鞭炮烟花。打花匠人赤膊上阵，一人将1600℃高温熔化的白炽铁水抛向花棚，另一名技师手持浸湿的柳木棒，凌空奋力一击！</p>
+        </div>
+
+        <div class="bg-amber-950/30 p-3.5 rounded-2xl border border-amber-500/20">
+          <h4 class="font-bold text-amber-200 mb-1 flex items-center space-x-1.5">
+            <span>✨</span><span>物理与视觉特征</span>
+          </h4>
+          <p>铁水在极速打击下被撞碎为亿万微米级液滴。在空中与氧气剧烈接触产生<strong>二次爆裂氧化</strong>，犹如火树银花撕裂黑夜，气浪滚滚，呼啸如雷，绚烂远胜常规冷光烟火。</p>
+        </div>
+      </div>
+
+      <div class="mt-6 text-center">
+        <button id="btnConfirmInfo" class="glass-btn px-8 py-2.5 rounded-xl text-amber-200 font-bold border-amber-400/50">领略盛景</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Canvas & Window Setup ---
+    const canvas = document.getElementById('fireCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+
+    // Simulation Config
+    const CONFIG = {
+      maxParticles: 7000,
+      gravity: 0.28,
+      airResistance: 0.984,
+      bounceDamping: 0.35,
+      branching: true,
+      groundBounce: true,
+      tempMode: 'standard', // 'standard' (1600C), 'white' (1850C), 'copper' (1450C)
+      soundEnabled: true
+    };
+
+    // Mode state: 'strike' | 'free' | 'show'
+    let currentMode = 'strike';
+
+    // Particle Array Pool
+    const particles = [];
+    const MAX_PARTICLES_CAP = 25000;
+
+    // Strike Mode Game State
+    const strikeState = {
+      phase: 'idle', // 'idle' | 'rising' | 'falling' | 'exploded'
+      tossX: 0,
+      tossY: 0,
+      targetX: 0,
+      targetY: 0,
+      blobX: 0,
+      blobY: 0,
+      blobVx: 0,
+      blobVy: 0,
+      blobRadius: 10,
+      apexY: 0,
+      tossTime: 0,
+      sweetSpotWindow: false
+    };
+
+    // Show Mode Choreography
+    const showActs = [
+      { id: 'act1', name: '【第一幕 · 祭火启祥】', type: 'ritual' },
+      { id: 'act2', name: '【第二幕 · 火树银花】', type: 'treetower' },
+      { id: 'act3', name: '【第三幕 · 游龙戏凤】', type: 'dragons' },
+      { id: 'act4', name: '【第四幕 · 万顷星雨瀑布】', type: 'waterfall' }
+    ];
+    let currentActIndex = 0;
+    let actTimer = 0;
+
+    // Audio Engine variables
+    let audioCtx = null;
+    let masterGain = null;
+
+    // Synthesizes low mallet thuds, explosive booms, and crackling iron spark sizzling without external audio files
+    class AudioSynthesizer {
+      constructor() {
+        this.initialized = false;
+      }
+
+      init() {
+        if (this.initialized) return;
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AudioContextClass();
+          masterGain = audioCtx.createGain();
+          masterGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+          masterGain.connect(audioCtx.destination);
+          this.initialized = true;
+          this.createNoiseBuffer();
+        } catch (e) {
+          console.warn("AudioContext init error:", e);
+        }
+      }
+
+      ensureContext() {
+        if (!this.initialized) this.init();
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      }
+
+      createNoiseBuffer() {
+        if (!audioCtx) return;
+        const bufferSize = audioCtx.sampleRate * 2;
+        this.noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = this.noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+      }
+
+      // Wooden Mallet heavy strike + shockwave boom
+      playStrikeImpact(power = 1.0) {
+        if (!CONFIG.soundEnabled || !this.initialized) return;
+        this.ensureContext();
+        const now = audioCtx.currentTime;
+
+        // 1. Deep Sub-Boom (Sine sweep)
+        const osc = audioCtx.createOscillator();
+        const oscGain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(150 * power, now);
+        osc.frequency.exponentialRampToValueAtTime(32, now + 0.45);
+
+        oscGain.gain.setValueAtTime(0.9 * power, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+        osc.connect(oscGain);
+        oscGain.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 0.5);
+
+        // 2. Willow Mallet wood "Thwack" transient
+        const woodOsc = audioCtx.createOscillator();
+        const woodGain = audioCtx.createGain();
+        woodOsc.type = 'triangle';
+        woodOsc.frequency.setValueAtTime(480, now);
+        woodOsc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+
+        woodGain.gain.setValueAtTime(1.0 * power, now);
+        woodGain.gain.exponentialRampToValueAtTime(0.01, now + 0.09);
+
+        woodOsc.connect(woodGain);
+        woodGain.connect(masterGain);
+        woodOsc.start(now);
+        woodOsc.stop(now + 0.09);
+
+        // 3. Air Blast Noise
+        if (this.noiseBuffer) {
+          const noise = audioCtx.createBufferSource();
+          noise.buffer = this.noiseBuffer;
+          const filter = audioCtx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(600 * power, now);
+          filter.frequency.linearRampToValueAtTime(120, now + 0.35);
+
+          const noiseGain = audioCtx.createGain();
+          noiseGain.gain.setValueAtTime(0.7 * power, now);
+          noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+          noise.connect(filter);
+          filter.connect(noiseGain);
+          noiseGain.connect(masterGain);
+
+          noise.start(now);
+          noise.stop(now + 0.4);
+        }
+
+        // Trigger crackle cluster immediately following the blast
+        this.playCrackleCluster(15, 0.05);
+      }
+
+      // Whoosh sound when tossing molten ladle
+      playTossWhoosh() {
+        if (!CONFIG.soundEnabled || !this.initialized) return;
+        this.ensureContext();
+        if (!this.noiseBuffer) return;
+        const now = audioCtx.currentTime;
+
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = this.noiseBuffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.Q.value = 3.5;
+        filter.frequency.setValueAtTime(250, now);
+        filter.frequency.exponentialRampToValueAtTime(1200, now + 0.4);
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.4, now + 0.2);
+        gain.gain.linearRampToValueAtTime(0.001, now + 0.45);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(masterGain);
+
+        noise.start(now);
+        noise.stop(now + 0.45);
+      }
+
+      // Sizzling micro-explosions (Branching iron crackle)
+      playCrackleCluster(count = 12, startDelay = 0) {
+        if (!CONFIG.soundEnabled || !this.initialized || !this.noiseBuffer) return;
+        const now = audioCtx.currentTime + startDelay;
+
+        for (let i = 0; i < count; i++) {
+          const delay = Math.random() * 0.7;
+          const burstTime = now + delay;
+          const noise = audioCtx.createBufferSource();
+          noise.buffer = this.noiseBuffer;
+
+          const filter = audioCtx.createBiquadFilter();
+          filter.type = 'highpass';
+          filter.frequency.value = 2500 + Math.random() * 4000;
+
+          const gain = audioCtx.createGain();
+          const amp = 0.08 + Math.random() * 0.15;
+          gain.gain.setValueAtTime(amp, burstTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, burstTime + 0.03 + Math.random() * 0.04);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(masterGain);
+
+          noise.start(burstTime);
+          noise.stop(burstTime + 0.08);
+        }
+      }
+    }
+
+    const soundEngine = new AudioSynthesizer();
+
+    // Blackbody thermal color profiles
+    function getParticleColor(lifeRatio, tempMode) {
+      // lifeRatio: 1.0 (just born, 1600C) down to 0.0 (extinguished ember)
+      if (tempMode === 'white') {
+        if (lifeRatio > 0.85) return `rgba(255, 255, 255, ${0.8 + lifeRatio * 0.2})`;
+        if (lifeRatio > 0.6)  return `rgba(245, 250, 255, ${0.75 + lifeRatio * 0.25})`;
+        if (lifeRatio > 0.35) return `rgba(255, 220, 140, ${lifeRatio + 0.2})`;
+        if (lifeRatio > 0.15) return `rgba(255, 120, 30, ${lifeRatio + 0.2})`;
+        return `rgba(180, 40, 10, ${lifeRatio * 1.5})`;
+      } else if (tempMode === 'copper') {
+        if (lifeRatio > 0.85) return `rgba(255, 240, 180, 1)`;
+        if (lifeRatio > 0.6)  return `rgba(255, 160, 40, ${lifeRatio + 0.3})`;
+        if (lifeRatio > 0.35) return `rgba(230, 70, 15, ${lifeRatio + 0.3})`;
+        if (lifeRatio > 0.12) return `rgba(160, 25, 5, ${lifeRatio * 1.8})`;
+        return `rgba(80, 10, 0, ${lifeRatio * 2})`;
+      } else {
+        // Standard 1600C Molten Pig Iron
+        if (lifeRatio > 0.88) return `rgba(255, 255, 245, 1)`;
+        if (lifeRatio > 0.65) return `rgba(255, 225, 90, 0.95)`;
+        if (lifeRatio > 0.40) return `rgba(255, 145, 25, 0.85)`;
+        if (lifeRatio > 0.18) return `rgba(220, 50, 10, 0.7)`;
+        if (lifeRatio > 0.06) return `rgba(130, 20, 0, 0.45)`;
+        return `rgba(40, 10, 5, 0.2)`;
+      }
+    }
+
+    class Spark {
+      constructor() {
+        this.active = false;
+        this.x = 0;
+        this.y = 0;
+        this.prevX = 0;
+        this.prevY = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.life = 1;
+        this.maxLife = 100;
+        this.size = 2;
+        this.mass = 1;
+        this.canBranch = true;
+        this.hasBranched = false;
+        this.branchThreshold = 0.55;
+        this.bounces = 0;
+        this.maxBounces = 2;
+        this.groundY = 0;
+      }
+
+      spawn(x, y, vx, vy, options = {}) {
+        this.active = true;
+        this.x = x;
+        this.y = y;
+        this.prevX = x - vx * 0.4;
+        this.prevY = y - vy * 0.4;
+        this.vx = vx;
+        this.vy = vy;
+        this.maxLife = options.maxLife || (65 + Math.random() * 70);
+        this.life = this.maxLife;
+        this.size = options.size || (1.2 + Math.random() * 2.2);
+        this.mass = options.mass || (0.8 + Math.random() * 0.8);
+        this.canBranch = options.canBranch !== undefined ? options.canBranch : (Math.random() < 0.38);
+        this.hasBranched = false;
+        this.branchThreshold = 0.45 + Math.random() * 0.25;
+        this.bounces = 0;
+        this.maxBounces = options.maxBounces || (Math.random() < 0.5 ? 2 : 1);
+        this.groundY = height - 55 - Math.random() * 15;
+      }
+
+      update() {
+        if (!this.active) return;
+
+        this.prevX = this.x;
+        this.prevY = this.y;
+
+        // Aerodynamic drag + gravity
+        this.vx *= CONFIG.airResistance;
+        this.vy = this.vy * CONFIG.airResistance + CONFIG.gravity * this.mass;
+
+        // Wind turbulence flutter
+        this.vx += (Math.random() - 0.5) * 0.14;
+        this.vy += (Math.random() - 0.5) * 0.08;
+
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= 1;
+
+        const lifeRatio = this.life / this.maxLife;
+
+        // Secondary Branching Star Burst (Characteristic Datiehua phenomenon)
+        if (CONFIG.branching && this.canBranch && !this.hasBranched && lifeRatio < this.branchThreshold) {
+          this.hasBranched = true;
+          this.explodeBranch();
+        }
+
+        // Ground / River reflection collision
+        if (CONFIG.groundBounce && this.y >= this.groundY) {
+          this.y = this.groundY;
+          if (this.bounces < this.maxBounces && Math.abs(this.vy) > 1.2) {
+            this.vy = -this.vy * CONFIG.bounceDamping;
+            this.vx *= 0.65;
+            this.bounces++;
+            // Tiny impact ground splatter
+            if (Math.random() < 0.35) {
+              spawnMicroSplatter(this.x, this.y);
+            }
+          } else {
+            this.vx *= 0.7;
+            this.vy = 0;
+            this.life -= 3; // Rapid cooling on stone ground
+          }
+        }
+
+        if (this.life <= 0 || this.x < -100 || this.x > width + 100 || this.y > height + 50) {
+          this.active = false;
+        }
+      }
+
+      explodeBranch() {
+        // Spawn 4 to 8 fine radiating sparks when iron oxidizes
+        const count = 3 + Math.floor(Math.random() * 5);
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 1.2 + Math.random() * 3.8;
+          const bvx = this.vx * 0.35 + Math.cos(angle) * speed;
+          const bvy = this.vy * 0.35 + Math.sin(angle) * speed;
+          spawnParticle(this.x, this.y, bvx, bvy, {
+            size: 0.8 + Math.random() * 1.2,
+            maxLife: 20 + Math.random() * 35,
+            canBranch: false,
+            mass: 0.6
+          });
+        }
+      }
+
+      draw(context) {
+        if (!this.active) return;
+        const lifeRatio = Math.max(0, this.life / this.maxLife);
+        const color = getParticleColor(lifeRatio, CONFIG.tempMode);
+
+        // Motion blur velocity-based trailing line
+        context.beginPath();
+        context.strokeStyle = color;
+        context.lineWidth = this.size * (0.4 + lifeRatio * 0.8);
+        context.lineCap = 'round';
+        context.moveTo(this.prevX, this.prevY);
+        context.lineTo(this.x, this.y);
+        context.stroke();
+
+        // Extra white-hot incandescent head core for newly struck sparks
+        if (lifeRatio > 0.75) {
+          context.beginPath();
+          context.fillStyle = '#ffffff';
+          context.arc(this.x, this.y, this.size * 0.45, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
+    }
+
+    // Initialize particle pool
+    for (let i = 0; i < MAX_PARTICLES_CAP; i++) {
+      particles.push(new Spark());
+    }
+
+    function spawnParticle(x, y, vx, vy, options) {
+      if (getActiveParticleCount() >= CONFIG.maxParticles) return null;
+      for (let i = 0; i < particles.length; i++) {
+        if (!particles[i].active) {
+          particles[i].spawn(x, y, vx, vy, options);
+          return particles[i];
+        }
+      }
+      return null;
+    }
+
+    function spawnMicroSplatter(x, y) {
+      for (let i = 0; i < 3; i++) {
+        const ang = -Math.PI * 0.1 - Math.random() * Math.PI * 0.8;
+        const spd = 1.0 + Math.random() * 2.5;
+        spawnParticle(x, y, Math.cos(ang) * spd, Math.sin(ang) * spd, {
+          size: 1.0,
+          maxLife: 25 + Math.random() * 20,
+          canBranch: false,
+          mass: 1.2
+        });
+      }
+    }
+
+    function getActiveParticleCount() {
+      let count = 0;
+      for (let i = 0; i < particles.length; i++) {
+        if (particles[i].active) count++;
+      }
+      return count;
+    }
+
+    // Pre-drawn background silhouette buffer to save rendering cycles
+    let bgCanvas = null;
+
+    function renderScenicBackground() {
+      if (!bgCanvas) {
+        bgCanvas = document.createElement('canvas');
+      }
+      bgCanvas.width = width;
+      bgCanvas.height = height;
+      const bCtx = bgCanvas.getContext('2d');
+
+      // Sky Night Gradient
+      const skyGrad = bCtx.createLinearGradient(0, 0, 0, height);
+      skyGrad.addColorStop(0, '#04060c');
+      skyGrad.addColorStop(0.55, '#080a14');
+      skyGrad.addColorStop(0.85, '#12121f');
+      skyGrad.addColorStop(1, '#0c0d17');
+      bCtx.fillStyle = skyGrad;
+      bCtx.fillRect(0, 0, width, height);
+
+      // Distant Misty Mountains
+      bCtx.fillStyle = 'rgba(15, 18, 30, 0.7)';
+      bCtx.beginPath();
+      bCtx.moveTo(0, height - 70);
+      let mx = 0;
+      while (mx < width) {
+        mx += 70 + Math.random() * 100;
+        const my = height - 120 - Math.random() * 60;
+        bCtx.lineTo(mx, my);
+      }
+      bCtx.lineTo(width, height - 70);
+      bCtx.closePath();
+      bCtx.fill();
+
+      // Ancient Fortress City Gate Silhouettes (Left & Center)
+      bCtx.fillStyle = '#06070c';
+      const wallH = 65;
+      bCtx.fillRect(0, height - wallH, width, wallH);
+
+      // Distant Pagoda & Gate Tower (Left side)
+      const towerX = width * 0.12;
+      const groundBase = height - wallH;
+
+      // Tier 1 Base
+      bCtx.fillRect(towerX - 45, groundBase - 40, 90, 40);
+      // Eaves 1
+      bCtx.beginPath();
+      bCtx.moveTo(towerX - 60, groundBase - 40);
+      bCtx.lineTo(towerX + 60, groundBase - 40);
+      bCtx.lineTo(towerX + 45, groundBase - 50);
+      bCtx.lineTo(towerX - 45, groundBase - 50);
+      bCtx.fill();
+
+      // Tier 2
+      bCtx.fillRect(towerX - 35, groundBase - 85, 70, 35);
+      // Eaves 2
+      bCtx.beginPath();
+      bCtx.moveTo(towerX - 50, groundBase - 85);
+      bCtx.lineTo(towerX + 50, groundBase - 85);
+      bCtx.lineTo(towerX + 35, groundBase - 95);
+      bCtx.lineTo(towerX - 35, groundBase - 95);
+      bCtx.fill();
+
+      // Tower Peak
+      bCtx.beginPath();
+      bCtx.moveTo(towerX - 25, groundBase - 95);
+      bCtx.lineTo(towerX + 25, groundBase - 95);
+      bCtx.lineTo(towerX, groundBase - 125);
+      bCtx.fill();
+
+      // Willow Bower Frame (柳木花棚 - The iconic scaffolding for Datiehua on right/center)
+      const shedX = width * 0.72;
+      const shedW = Math.min(260, width * 0.35);
+      const shedH = 140;
+
+      bCtx.strokeStyle = '#080a12';
+      bCtx.lineWidth = 4;
+      // Upright Willow Poles
+      bCtx.beginPath();
+      bCtx.moveTo(shedX - shedW * 0.5, groundBase);
+      bCtx.lineTo(shedX - shedW * 0.5, groundBase - shedH);
+      bCtx.moveTo(shedX, groundBase);
+      bCtx.lineTo(shedX, groundBase - shedH);
+      bCtx.moveTo(shedX + shedW * 0.5, groundBase);
+      bCtx.lineTo(shedX + shedW * 0.5, groundBase - shedH);
+      // Crossbars
+      bCtx.moveTo(shedX - shedW * 0.55, groundBase - shedH * 0.5);
+      bCtx.lineTo(shedX + shedW * 0.55, groundBase - shedH * 0.5);
+      bCtx.moveTo(shedX - shedW * 0.58, groundBase - shedH);
+      bCtx.lineTo(shedX + shedW * 0.58, groundBase - shedH);
+      bCtx.stroke();
+
+      // Lush Willow Twigs & Canopy on Top
+      bCtx.fillStyle = '#06070c';
+      for (let i = -shedW * 0.6; i <= shedW * 0.6; i += 8) {
+        bCtx.beginPath();
+        const twigH = 20 + Math.sin(i * 0.1) * 12;
+        bCtx.arc(shedX + i, groundBase - shedH - 5, twigH * 0.6, 0, Math.PI * 2);
+        bCtx.fill();
+      }
+
+      // Traditional Blacksmith Silhouette Figure (Stage Center)
+      const smithX = width * 0.5;
+      const smithY = groundBase;
+      bCtx.fillStyle = '#05070c';
+      // Legs
+      bCtx.fillRect(smithX - 12, smithY - 25, 8, 25);
+      bCtx.fillRect(smithX + 4, smithY - 25, 8, 25);
+      // Torso (Sturdy pose)
+      bCtx.fillRect(smithX - 10, smithY - 55, 20, 30);
+      // Head with headband
+      bCtx.beginPath();
+      bCtx.arc(smithX, smithY - 65, 8, 0, Math.PI * 2);
+      bCtx.fill();
+      // Arm raised holding willow striker bar
+      bCtx.beginPath();
+      bCtx.moveTo(smithX + 5, smithY - 50);
+      bCtx.lineTo(smithX + 26, smithY - 72);
+      bCtx.lineWidth = 5;
+      bCtx.stroke();
+      // Willow Bar
+      bCtx.beginPath();
+      bCtx.moveTo(smithX + 18, smithY - 88);
+      bCtx.lineTo(smithX + 38, smithY - 52);
+      bCtx.lineWidth = 4;
+      bCtx.strokeStyle = '#05070c';
+      bCtx.stroke();
+
+      // Ground Reflection & River Bank
+      bCtx.fillStyle = '#040508';
+      bCtx.fillRect(0, height - 25, width, 25);
+      bCtx.strokeStyle = 'rgba(255, 180, 50, 0.08)';
+      bCtx.lineWidth = 1;
+      bCtx.beginPath();
+      bCtx.moveTo(0, height - 25);
+      bCtx.lineTo(width, height - 25);
+      bCtx.stroke();
+    }
+
+    // Execute Grand Strike Explosion
+    function triggerGrandExplosion(x, y, powerRatio = 1.0, countBonus = 0) {
+      soundEngine.playStrikeImpact(powerRatio);
+
+      // Determine spark quantity based on power & settings
+      let count = Math.floor((1200 + countBonus) * powerRatio);
+      if (CONFIG.maxParticles <= 3000) count = Math.min(count, 1000);
+      if (CONFIG.maxParticles >= 12000) count = Math.floor(count * 1.6);
+
+      // Camera Flash brightness
+      screenGlowIntensity = Math.min(1.0, 0.4 + powerRatio * 0.5);
+
+      // Main Canopy Blast (Radiating outward and upward)
+      for (let i = 0; i < count; i++) {
+        // Asymmetric blast: predominantly upwards and widespread horizontally
+        const angle = -Math.PI * 0.5 + (Math.random() - 0.5) * Math.PI * 1.55;
+        // High speed dispersion with natural variance
+        const speed = (4 + Math.random() * 19) * (0.8 + powerRatio * 0.45);
+        const vx = Math.cos(angle) * speed + (Math.random() - 0.5) * 4;
+        const vy = Math.sin(angle) * speed * 0.9;
+
+        spawnParticle(x, y, vx, vy, {
+          size: 1.2 + Math.random() * 2.8,
+          maxLife: 75 + Math.random() * 85,
+          canBranch: Math.random() < 0.42,
+          mass: 0.7 + Math.random() * 0.9
+        });
+      }
+
+      // Dense core micro-droplets
+      const coreCount = Math.floor(count * 0.25);
+      for (let i = 0; i < coreCount; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = 1 + Math.random() * 7;
+        spawnParticle(x, y, Math.cos(ang) * spd, Math.sin(ang) * spd, {
+          size: 2.5 + Math.random() * 2.0,
+          maxLife: 40 + Math.random() * 45,
+          canBranch: false,
+          mass: 1.4
+        });
+      }
+
+      // Secondary delay sizzling sounds
+      soundEngine.playCrackleCluster(18, 0.15);
+      soundEngine.playCrackleCluster(12, 0.4);
+    }
+
+    // Launch Molten Iron Ladle (起花)
+    function launchLadleToss() {
+      if (strikeState.phase !== 'idle') return;
+      soundEngine.ensureContext();
+      soundEngine.playTossWhoosh();
+
+      strikeState.phase = 'rising';
+      strikeState.tossX = width * 0.5;
+      strikeState.tossY = height - 90;
+      strikeState.blobX = strikeState.tossX;
+      strikeState.blobY = strikeState.tossY;
+      
+      // Target apex in sky
+      strikeState.targetX = width * 0.5 + (Math.random() - 0.5) * (width * 0.15);
+      strikeState.apexY = height * 0.28 + Math.random() * (height * 0.1);
+
+      // Physics to reach apex
+      const hDiff = strikeState.tossY - strikeState.apexY;
+      const initialVy = -Math.sqrt(2 * CONFIG.gravity * hDiff * 1.1);
+      const timeToApex = -initialVy / CONFIG.gravity;
+      const initialVx = (strikeState.targetX - strikeState.tossX) / timeToApex;
+
+      strikeState.blobVx = initialVx;
+      strikeState.blobVy = initialVy;
+      strikeState.tossTime = performance.now();
+
+      // Show Reticle at calculated Apex
+      const reticle = document.getElementById('targetReticle');
+      reticle.style.left = `${strikeState.targetX - 48}px`;
+      reticle.style.top = `${strikeState.apexY - 48}px`;
+      reticle.classList.remove('opacity-0');
+      reticle.classList.add('opacity-100');
+
+      // Update button visual states
+      document.getElementById('btnToss').classList.add('opacity-40', 'pointer-events-none');
+      document.getElementById('btnStrike').classList.remove('opacity-40', 'pointer-events-none');
+    }
+
+    // Execute Mallet Strike (挥棒击打)
+    function performStrikeAction() {
+      if (strikeState.phase === 'idle') {
+        // If pressed when idle, directly launch & fast strike
+        launchLadleToss();
+        return;
+      }
+
+      if (strikeState.phase === 'exploded') return;
+
+      const distToApex = Math.hypot(strikeState.blobX - strikeState.targetX, strikeState.blobY - strikeState.apexY);
+      const verticalDist = Math.abs(strikeState.blobY - strikeState.apexY);
+      const speed = Math.abs(strikeState.blobVy);
+
+      let ratingTitle = "";
+      let ratingSub = "";
+      let power = 1.0;
+      let countBonus = 0;
+
+      // Evaluation based on proximity to zero-velocity apex
+      if (speed < 2.4 && verticalDist < height * 0.08) {
+        // PERFECT STRIKE
+        ratingTitle = "火树银花 · 极天绝技！";
+        ratingSub = "完美制高点击打 · 全域万顷金雨";
+        power = 1.6;
+        countBonus = 2200;
+        showRatingBanner(ratingTitle, ratingSub, 'perfect');
+      } else if (speed < 5.0 && verticalDist < height * 0.16) {
+        // GOOD STRIKE
+        ratingTitle = "繁花似锦 · 气势磅礴！";
+        ratingSub = "击打得当 · 漫天星芒漫卷";
+        power = 1.15;
+        countBonus = 800;
+        showRatingBanner(ratingTitle, ratingSub, 'good');
+      } else {
+        // MISS/EARLY/LATE
+        ratingTitle = "错失良机 · 偏离火候";
+        ratingSub = "铁水未达极点 · 散落稀疏残星";
+        power = 0.55;
+        countBonus = -400;
+        showRatingBanner(ratingTitle, ratingSub, 'poor');
+      }
+
+      // Detonate at current blob location
+      triggerGrandExplosion(strikeState.blobX, strikeState.blobY, power, countBonus);
+      strikeState.phase = 'exploded';
+
+      // Hide target reticle
+      const reticle = document.getElementById('targetReticle');
+      reticle.classList.remove('opacity-100');
+      reticle.classList.add('opacity-0');
+
+      // Reset strike state after short timeout
+      setTimeout(() => {
+        resetStrikeState();
+      }, 1400);
+    }
+
+    function resetStrikeState() {
+      strikeState.phase = 'idle';
+      document.getElementById('btnToss').classList.remove('opacity-40', 'pointer-events-none');
+      document.getElementById('btnStrike').classList.remove('opacity-40', 'pointer-events-none');
+    }
+
+    // Rating Banner Toast Display
+    let ratingTimeout = null;
+    function showRatingBanner(title, sub, rank) {
+      const banner = document.getElementById('ratingBanner');
+      const titleElem = document.getElementById('ratingText');
+      const subElem = document.getElementById('ratingSubText');
+
+      titleElem.textContent = title;
+      subElem.textContent = sub;
+
+      if (rank === 'perfect') {
+        titleElem.className = "seal-font text-3xl sm:text-5xl md:text-6xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-white via-yellow-200 to-amber-500 drop-shadow-[0_0_35px_rgba(255,200,80,1)]";
+      } else if (rank === 'good') {
+        titleElem.className = "seal-font text-2xl sm:text-4xl md:text-5xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-yellow-100 via-amber-300 to-orange-500 drop-shadow-[0_0_20px_rgba(255,160,40,0.8)]";
+      } else {
+        titleElem.className = "seal-font text-xl sm:text-3xl font-bold tracking-wide text-gray-300";
+      }
+
+      banner.classList.remove('opacity-0', '-translate-y-4', 'scale-90');
+      banner.classList.add('opacity-100', 'translate-y-0', 'scale-100');
+
+      clearTimeout(ratingTimeout);
+      ratingTimeout = setTimeout(() => {
+        banner.classList.remove('opacity-100', 'translate-y-0', 'scale-100');
+        banner.classList.add('opacity-0', '-translate-y-4', 'scale-90');
+      }, 2600);
+    }
+
+    // Free Mode: Fluid Swipe & Pointer Trajectory Tracking
+    let isPointerDown = false;
+    let lastPointerX = 0;
+    let lastPointerY = 0;
+    let lastPointerTime = 0;
+
+    function handlePointerStart(x, y) {
+      soundEngine.ensureContext();
+      isPointerDown = true;
+      lastPointerX = x;
+      lastPointerY = y;
+      lastPointerTime = performance.now();
+
+      if (currentMode === 'free') {
+        // Direct tap splash
+        createSplashBurst(x, y, 45, 0, -6);
+      } else if (currentMode === 'strike') {
+        // Tap screen in strike mode triggers hit if rising, else launches
+        if (strikeState.phase === 'rising') {
+          performStrikeAction();
+        }
+      }
+    }
+
+    function handlePointerMove(x, y) {
+      if (!isPointerDown) return;
+      const now = performance.now();
+      const dt = Math.max(1, now - lastPointerTime);
+      const dx = x - lastPointerX;
+      const dy = y - lastPointerY;
+      const dist = Math.hypot(dx, dy);
+      const speed = dist / dt; // pixels per ms
+
+      if (currentMode === 'free') {
+        // Generate directional fan of molten sparks based on hand swipe speed
+        if (dist > 8) {
+          const spawnCount = Math.min(38, Math.floor(dist * 0.85));
+          for (let i = 0; i < spawnCount; i++) {
+            const ratio = i / spawnCount;
+            const px = lastPointerX + dx * ratio;
+            const py = lastPointerY + dy * ratio;
+
+            // Throw sparks predominantly in drag direction with outward spread
+            const spreadAngle = (Math.random() - 0.5) * 0.75;
+            const dirAngle = Math.atan2(dy, dx) + spreadAngle;
+            const sparkSpeed = (speed * 12 + Math.random() * 8) * 0.9;
+
+            const vx = Math.cos(dirAngle) * sparkSpeed + (Math.random() - 0.5) * 3;
+            const vy = Math.sin(dirAngle) * sparkSpeed - 2.5 - Math.random() * 4;
+
+            spawnParticle(px, py, vx, vy, {
+              size: 1.2 + Math.random() * 2.2,
+              maxLife: 50 + Math.random() * 55,
+              canBranch: Math.random() < 0.35,
+              mass: 0.8 + Math.random() * 0.6
+            });
+          }
+
+          if (Math.random() < 0.18) {
+            soundEngine.playCrackleCluster(3, 0);
+          }
+        }
+      }
+
+      lastPointerX = x;
+      lastPointerY = y;
+      lastPointerTime = now;
+    }
+
+    function handlePointerEnd() {
+      isPointerDown = false;
+    }
+
+    function createSplashBurst(x, y, count = 40, baseVx = 0, baseVy = -5) {
+      for (let i = 0; i < count; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = 2 + Math.random() * 11;
+        spawnParticle(x, y, baseVx + Math.cos(ang) * spd, baseVy + Math.sin(ang) * spd, {
+          size: 1.2 + Math.random() * 2.0,
+          maxLife: 45 + Math.random() * 60,
+          canBranch: Math.random() < 0.3
+        });
+      }
+      soundEngine.playCrackleCluster(5, 0);
+    }
+
+    // Attach Cross-Platform Event Listeners (Touch & Mouse)
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      handlePointerStart(e.clientX - rect.left, e.clientY - rect.top);
+    });
+    window.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      handlePointerMove(e.clientX - rect.left, e.clientY - rect.top);
+    });
+    window.addEventListener('mouseup', handlePointerEnd);
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      handlePointerStart(touch.clientX - rect.left, touch.clientY - rect.top);
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      handlePointerMove(touch.clientX - rect.left, touch.clientY - rect.top);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', handlePointerEnd);
+    canvas.addEventListener('touchcancel', handlePointerEnd);
+
+    function updateShowModeChoreography() {
+      if (currentMode !== 'show') return;
+      actTimer++;
+
+      const act = showActs[currentActIndex];
+
+      if (act.type === 'ritual') {
+        // Single dignified towering toss every 110 frames
+        if (actTimer % 100 === 0) {
+          const tossX = width * 0.5 + (Math.sin(actTimer * 0.05)) * (width * 0.2);
+          triggerGrandExplosion(tossX, height * 0.32, 1.2, 800);
+        }
+      } else if (act.type === 'treetower') {
+        // Fast alternating strikes from dual towers (Left fortress & Right willow bower)
+        if (actTimer % 45 === 0) {
+          const isLeft = (actTimer % 90 === 0);
+          const x = isLeft ? width * 0.3 : width * 0.7;
+          const y = height * 0.28 + (Math.random() - 0.5) * 50;
+          triggerGrandExplosion(x, y, 1.35, 1200);
+        }
+      } else if (act.type === 'dragons') {
+        // Twin spiraling stream fountains intersecting across the sky
+        const t = actTimer * 0.08;
+        const leftX = width * 0.25 + Math.sin(t) * (width * 0.2);
+        const leftY = height * 0.45 + Math.cos(t) * 70;
+        const rightX = width * 0.75 - Math.sin(t) * (width * 0.2);
+        const rightY = height * 0.45 + Math.sin(t) * 70;
+
+        for (let k = 0; k < 6; k++) {
+          spawnParticle(leftX, leftY, 4 + Math.random() * 5, -8 - Math.random() * 6, {
+            size: 1.8,
+            maxLife: 60,
+            canBranch: true
+          });
+          spawnParticle(rightX, rightY, -4 - Math.random() * 5, -8 - Math.random() * 6, {
+            size: 1.8,
+            maxLife: 60,
+            canBranch: true
+          });
+        }
+        if (actTimer % 18 === 0) soundEngine.playCrackleCluster(4, 0);
+      } else if (act.type === 'waterfall') {
+        // Massive continuous high-altitude rain waterfall of golden sparks
+        if (actTimer % 6 === 0) {
+          const rx = width * 0.15 + Math.random() * (width * 0.7);
+          const ry = height * 0.18 + Math.random() * 40;
+          for (let m = 0; m < 14; m++) {
+            spawnParticle(rx, ry, (Math.random() - 0.5) * 4, -1 - Math.random() * 4, {
+              size: 1.6 + Math.random() * 2,
+              maxLife: 90 + Math.random() * 40,
+              canBranch: Math.random() < 0.45,
+              mass: 0.65
+            });
+          }
+        }
+        if (actTimer % 24 === 0) soundEngine.playCrackleCluster(5, 0);
+      }
+
+      // Automatically transition act every 480 frames (~8 seconds)
+      if (actTimer > 520) {
+        nextShowAct();
+      }
+    }
+
+    function nextShowAct() {
+      actTimer = 0;
+      currentActIndex = (currentActIndex + 1) % showActs.length;
+      document.getElementById('showActTitle').textContent = showActs[currentActIndex].name;
+    }
+
+    let screenGlowIntensity = 0;
+    let lastFrameTime = performance.now();
+    let frameCounter = 0;
+    let fps = 60;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const now = performance.now();
+      frameCounter++;
+      if (now - lastFrameTime >= 1000) {
+        fps = frameCounter;
+        frameCounter = 0;
+        lastFrameTime = now;
+        document.getElementById('fpsLabel').textContent = `${fps} FPS`;
+        document.getElementById('sparkCountLabel').textContent = `粒子: ${getActiveParticleCount()}`;
+      }
+
+      // 1. Fade the previous canvas frame slightly for natural motion blur trails
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(5, 6, 11, 0.28)';
+      ctx.fillRect(0, 0, width, height);
+
+      // 2. Draw Scenic Silhouette background with low opacity overlay so sparks illuminate the night
+      if (bgCanvas) {
+        ctx.globalAlpha = 0.85;
+        ctx.drawImage(bgCanvas, 0, 0);
+        ctx.globalAlpha = 1.0;
+      }
+
+      // 3. Environmental Blast Flash Lighting
+      if (screenGlowIntensity > 0.01) {
+        ctx.fillStyle = `rgba(255, 190, 80, ${screenGlowIntensity * 0.18})`;
+        ctx.fillRect(0, 0, width, height);
+        screenGlowIntensity *= 0.88;
+      }
+
+      // 4. Update Strike Mode Molten Blob
+      if (currentMode === 'strike' && strikeState.phase === 'rising') {
+        strikeState.blobVy += CONFIG.gravity * 0.9;
+        strikeState.blobX += strikeState.blobVx;
+        strikeState.blobY += strikeState.blobVy;
+
+        // Render white-hot molten blob flying upward with tail sparks
+        ctx.beginPath();
+        const blobGrad = ctx.createRadialGradient(strikeState.blobX, strikeState.blobY, 0, strikeState.blobX, strikeState.blobY, 18);
+        blobGrad.addColorStop(0, '#ffffff');
+        blobGrad.addColorStop(0.3, '#ffea75');
+        blobGrad.addColorStop(0.7, '#ff8000');
+        blobGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = blobGrad;
+        ctx.arc(strikeState.blobX, strikeState.blobY, 18, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Droplet trail micro-sparks
+        if (Math.random() < 0.75) {
+          spawnParticle(strikeState.blobX, strikeState.blobY, (Math.random() - 0.5) * 3, Math.random() * 3, {
+            size: 1.5,
+            maxLife: 25,
+            canBranch: false
+          });
+        }
+
+        // If it starts falling back down without hit
+        if (strikeState.blobVy > 4.0 && strikeState.blobY > strikeState.apexY + 60) {
+          strikeState.phase = 'falling';
+          // Ground splash upon miss
+          setTimeout(() => {
+            if (strikeState.phase === 'falling') {
+              triggerGrandExplosion(strikeState.blobX, height - 60, 0.45, -600);
+              showRatingBanner("错失良机", "铁水坠地余烬散尽", "poor");
+              resetStrikeState();
+            }
+          }, 400);
+        }
+      }
+
+      // 5. Update Show Mode
+      updateShowModeChoreography();
+
+      // 6. Draw Sparks with High-Heat Additive Glow
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < particles.length; i++) {
+        if (particles[i].active) {
+          particles[i].update();
+          particles[i].draw(ctx);
+        }
+      }
+
+      // 7. Water / Damp stone floor reflection sheen at the bottom
+      renderGroundReflections();
+    }
+
+    function renderGroundReflections() {
+      // Bottom 25px subtle mirrored reflection
+      const groundH = 26;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(5, 7, 12, 0.65)';
+      ctx.fillRect(0, height - groundH, width, groundH);
+
+      ctx.globalCompositeOperation = 'lighter';
+      // Mirror active sparks near bottom
+      for (let i = 0; i < particles.length; i += 3) {
+        const p = particles[i];
+        if (p.active && p.y > height - 160) {
+          const mirrorY = height - (p.y - (height - groundH)) * 0.25;
+          ctx.beginPath();
+          ctx.fillStyle = 'rgba(255, 140, 20, 0.08)';
+          ctx.ellipse(p.x, mirrorY, p.size * 2.5, 1.2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function resizeCanvas() {
+      const containerW = window.innerWidth;
+      const containerH = window.innerHeight;
+
+      // Cap DPR at 1.5 to maintain consistent 60fps on mobile
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      width = containerW;
+      height = containerH;
+
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      ctx.scale(dpr, dpr);
+
+      // Recreate background silhouette cache
+      renderScenicBackground();
+    }
+
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+    });
+
+    // Mode Switcher
+    const modeButtons = document.querySelectorAll('.mode-btn');
+    const strikeActions = document.getElementById('strikeActions');
+    const freeActions = document.getElementById('freeActions');
+    const showActions = document.getElementById('showActions');
+
+    modeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        soundEngine.ensureContext();
+        modeButtons.forEach(b => {
+          b.classList.remove('active', 'bg-gradient-to-r', 'from-amber-600', 'to-orange-600', 'text-white', 'shadow-lg', 'shadow-orange-950/60', 'border-amber-400/40');
+          b.classList.add('text-amber-200/80', 'border-transparent');
+        });
+        btn.classList.add('active', 'bg-gradient-to-r', 'from-amber-600', 'to-orange-600', 'text-white', 'shadow-lg', 'shadow-orange-950/60', 'border-amber-400/40');
+        btn.classList.remove('text-amber-200/80', 'border-transparent');
+
+        currentMode = btn.dataset.mode;
+
+        // UI Panel visibility
+        strikeActions.classList.toggle('hidden', currentMode !== 'strike');
+        freeActions.classList.toggle('hidden', currentMode !== 'free');
+        showActions.classList.toggle('hidden', currentMode !== 'show');
+
+        // Hide timing target if not in strike
+        if (currentMode !== 'strike') {
+          document.getElementById('targetReticle').classList.remove('opacity-100');
+          document.getElementById('targetReticle').classList.add('opacity-0');
+        }
+      });
+    });
+
+    // Strike Action Buttons
+    document.getElementById('btnToss').addEventListener('click', (e) => {
+      e.stopPropagation();
+      launchLadleToss();
+    });
+    document.getElementById('btnStrike').addEventListener('click', (e) => {
+      e.stopPropagation();
+      performStrikeAction();
+    });
+
+    // Show Act Next button
+    document.getElementById('btnNextAct').addEventListener('click', () => {
+      soundEngine.ensureContext();
+      nextShowAct();
+    });
+
+    // Sound Toggle
+    const btnSound = document.getElementById('btnSound');
+    const iconSoundOn = document.getElementById('iconSoundOn');
+    const iconSoundOff = document.getElementById('iconSoundOff');
+    const txtSound = document.getElementById('txtSound');
+
+    btnSound.addEventListener('click', () => {
+      soundEngine.ensureContext();
+      CONFIG.soundEnabled = !CONFIG.soundEnabled;
+      if (CONFIG.soundEnabled) {
+        iconSoundOn.classList.remove('hidden');
+        iconSoundOff.classList.add('hidden');
+        txtSound.textContent = "声效";
+      } else {
+        iconSoundOn.classList.add('hidden');
+        iconSoundOff.classList.remove('hidden');
+        txtSound.textContent = "静音";
+      }
+    });
+
+    // Clear Screen
+    document.getElementById('btnClear').addEventListener('click', () => {
+      for (let i = 0; i < particles.length; i++) {
+        particles[i].active = false;
+      }
+      ctx.fillStyle = '#05060b';
+      ctx.fillRect(0, 0, width, height);
+    });
+
+    // Fullscreen Toggle
+    document.getElementById('btnFullscreen').addEventListener('click', () => {
+      soundEngine.ensureContext();
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    });
+
+    // Config Dialog Modal
+    const modalConfig = document.getElementById('modalConfig');
+    document.getElementById('btnConfig').addEventListener('click', () => {
+      modalConfig.classList.remove('hidden');
+    });
+    document.getElementById('btnCloseConfig').addEventListener('click', () => {
+      modalConfig.classList.add('hidden');
+    });
+    document.getElementById('btnSaveConfig').addEventListener('click', () => {
+      modalConfig.classList.add('hidden');
+    });
+
+    // Temp Profile Buttons
+    const tempButtons = document.querySelectorAll('.temp-btn');
+    tempButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tempButtons.forEach(b => {
+          b.classList.remove('active', 'border-amber-500', 'bg-amber-500/20', 'text-amber-200');
+          b.classList.add('border-white/20', 'text-gray-300');
+        });
+        btn.classList.add('active', 'border-amber-500', 'bg-amber-500/20', 'text-amber-200');
+        btn.classList.remove('border-white/20', 'text-gray-300');
+        CONFIG.tempMode = btn.dataset.temp;
+      });
+    });
+
+    // Particle Density Buttons
+    const densityButtons = document.querySelectorAll('.density-btn');
+    densityButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        densityButtons.forEach(b => {
+          b.classList.remove('active', 'border-amber-500', 'bg-amber-500/20', 'text-amber-200');
+          b.classList.add('border-white/20', 'text-gray-300');
+        });
+        btn.classList.add('active', 'border-amber-500', 'bg-amber-500/20', 'text-amber-200');
+        btn.classList.remove('border-white/20', 'text-gray-300');
+
+        if (btn.dataset.density === 'low') CONFIG.maxParticles = 2500;
+        else if (btn.dataset.density === 'med') CONFIG.maxParticles = 6500;
+        else CONFIG.maxParticles = 18000;
+      });
+    });
+
+    // Branching & Bounce Toggles
+    document.getElementById('chkBranching').addEventListener('change', (e) => {
+      CONFIG.branching = e.target.checked;
+    });
+    document.getElementById('chkBounce').addEventListener('change', (e) => {
+      CONFIG.groundBounce = e.target.checked;
+    });
+
+    // Heritage Info Modal
+    const modalInfo = document.getElementById('modalInfo');
+    document.getElementById('btnInfo').addEventListener('click', () => {
+      modalInfo.classList.remove('hidden');
+    });
+    document.getElementById('btnCloseInfo').addEventListener('click', () => {
+      modalInfo.classList.add('hidden');
+    });
+    document.getElementById('btnConfirmInfo').addEventListener('click', () => {
+      modalInfo.classList.add('hidden');
+    });
+
+    window.addEventListener('load', () => {
+      resizeCanvas();
+      animate();
+
+      // Initial welcoming warm sparks blast after brief delay
+      setTimeout(() => {
+        triggerGrandExplosion(width * 0.5, height * 0.35, 1.25, 600);
+      }, 700);
+    });
+  </script>
+</body>
+</html>
